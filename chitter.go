@@ -9,6 +9,22 @@ import (
 	"os"
 )
 
+// // client struct to keep track of channels and id of each client
+// type Client struct {
+// 	id int
+// 	incoming chan string
+// 	outgoing chan string
+
+// }
+
+// // functions to be called on Client struct
+// func (client *Client) Read() {
+// 	// forever loop that keeps reading from the channel
+// 	for {
+
+// 	}
+// }
+
 func main() {
 	var port string = os.Args[1]
 	var count int = 0
@@ -41,15 +57,17 @@ func main() {
 }
 
 func handleRequest(conn net.Conn) {
-	// byte array required because net.Conn uses byte arrays instead of strings
-	buffer := make([]byte, 1024)
-	request, err := conn.Read(buffer)
-	if err != nil {
-		fmt.Println("Error reading from connection: ", err.Error())
+	// byte slice required because net.Conn uses byte slices instead of strings
+	for {
+		buffer := make([]byte, 1024)
+		_, err := conn.Read(buffer)
+		if err != nil {
+			// fmt.Println("Error reading from connection: ", err.Error())
+			// close connection when error occurs
+			conn.Close()
+			break
+		}
+		// Send a response to the client
+		conn.Write(buffer)
 	}
-	fmt.Println(request)
-	// Send a response to the client
-	conn.Write([]byte("Message received."))
-	// Close connection
-	defer conn.Close()
 }
