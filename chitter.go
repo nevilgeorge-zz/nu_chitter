@@ -7,57 +7,26 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"bufio"
+	"strconv"
 )
 
 // client struct to keep track of channels and id of each client
 type Client struct {
 	id int
 	message chan string
-	reader *bufio.Reader
-	writer *bufio.Writer
 	conn net.Conn
 }
 
-// functions to be called on Client struct
-// func (client *Client) Read() {
-// 	// forever loop that keeps reading from the channel
-// 	for {
-// 		line, _ := client.reader.ReadString('\n')
-// 		// fmt.Println(line)
-// 		client.incoming <- line
-// 	}
-// }
-
 func (client *Client) Write(msg string) {
-	// for data := range client.incoming {
-	// 	fmt.Println(data)
-	// 	client.writer.WriteString(data)
-	// 	client.writer.Flush()
-	// }
 	client.conn.Write([]byte(msg))
 }
 
-// func (client *Client) Listen() {
-// 	go client.Read()
-// 	go client.Write()
-// }
-
-// func NewClient(connection net.Conn) *Client {
-// 	writer := bufio.NewWriter(connection)
-// 	reader := bufio.NewReader(connection)
-
-// 	client := &Client {
-// 		incoming: make(chan string),
-// 		outgoing: make(chan string),
-// 		reader: reader,
-// 		writer: writer,
-// 	}
-
-// 	client.Listen()
-
-// 	return client;
-// }
+func (client *Client) PrintId() {
+	// client.conn.Write([]byte(string(client.id)))
+	t := strconv.Itoa(client.id)
+	t += "\n"
+	client.conn.Write([]byte(t))
+}
 
 // array to keep track of clients currently connected to the server
 var clients = make([]*Client, 0)
@@ -107,14 +76,22 @@ func handleRequest(conn net.Conn, cli Client) {
 			conn.Close()
 			break
 		}
-		// Broadcast(string(buffer))
-		broadcast <- string(buffer)
+		input := string(buffer)
+		if input[0:6] == "whoami" {
+			cli.PrintId()
+		} else if input[0:3] == "all" {
+			fmt.Println("all reached")
+		}
+		// text := strconv.Itoa(cli.id) + " : " + input
+		// Broadcast(text)
+		// broadcast <- string(buffer)
 		select {
 		case personalMsg := <-cli.message:
 			conn.Write([]byte(personalMsg))
 		case broadcastMsg := <-broadcast:
 			conn.Write([]byte(broadcastMsg))
 		default:
+			// we need to have a default otherwise the select statement waits
 			continue
 		}
 	}
