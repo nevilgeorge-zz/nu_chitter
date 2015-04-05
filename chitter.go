@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 )
 
 // client struct to keep track of channels and id of each client
@@ -22,7 +23,6 @@ func (client *Client) Write(msg string) {
 }
 
 func (client *Client) PrintId() {
-	// client.conn.Write([]byte(string(client.id)))
 	t := strconv.Itoa(client.id)
 	t += "\n"
 	client.conn.Write([]byte(t))
@@ -80,10 +80,17 @@ func handleRequest(conn net.Conn, cli Client) {
 		if input[0:6] == "whoami" {
 			cli.PrintId()
 		} else if input[0:3] == "all" {
-			fmt.Println("all reached")
+			text := grabTextAfterColon(input)
+			broadcastMsg(text)
+		} else {
+			id, err := strconv.Atoi(string(input[0]))
+			if err != nil {
+				continue
+			}
+			text := grabTextAfterColon(input)
+			sendToRecipient(id, text)
 		}
-		// text := strconv.Itoa(cli.id) + " : " + input
-		// Broadcast(text)
+		
 		// broadcast <- string(buffer)
 		select {
 		case personalMsg := <-cli.message:
@@ -92,29 +99,29 @@ func handleRequest(conn net.Conn, cli Client) {
 			conn.Write([]byte(broadcastMsg))
 		default:
 			// we need to have a default otherwise the select statement waits
+			// just continue iterating through the for loop
 			continue
 		}
 	}
 }
 
-func Broadcast(msg string) {
+func broadcastMsg(msg string) {
 	for x := 0; x < len(clients); x++ {
 		clients[x].Write(msg)
 	}
 }
 
-// func handleRequest(conn net.Conn) {
-// 	for {
-// 	// byte slice required because net.Conn uses byte slices instead of strings
-// 		buffer := make([]byte, 1024)
-// 		_, err := conn.Read(buffer)
-// 		if err != nil {
-// 			// fmt.Println("Error reading from connection: ", err.Error())
-// 			// close connection when error occurs
-// 			conn.Close()
-// 			break
-// 		}
-// 		// Send a response to the client
-// 		conn.Write(buffer)
-// 	}
-// }
+func grabTextAfterColon(input string) (text string) {
+	index := strings.Index(input, ":")
+	if input[index + 1] == ' ' {
+		text = input[index + 2:]
+	} else {
+		text = input[index + 1:]
+	}
+	return text
+}
+
+func sendToRecipient(id int, text string) {
+	curr := clients[id - 1]
+	curr.Write(text)
+}
