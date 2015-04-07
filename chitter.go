@@ -13,10 +13,10 @@ import (
 
 // client struct to keep track of channels and id of each client
 type Client struct {
-	id int
+	id       int
 	incoming chan string
 	outgoing chan string
-	conn net.Conn
+	conn     net.Conn
 }
 
 // methods for the Client struct
@@ -52,9 +52,9 @@ var count int = 0
 
 func main() {
 	var port string = os.Args[1]
-	
+
 	// listening for incoming connections
-	listen, err := net.Listen("tcp", "localhost:" + port)
+	listen, err := net.Listen("tcp", "localhost:"+port)
 	if err != nil {
 		fmt.Println("Error on listening: ", err.Error())
 		os.Exit(1)
@@ -92,7 +92,7 @@ func handleRequest(conn net.Conn, cli Client) {
 	// run the select statement in the current go routine
 	for {
 		select {
-			// when a incoming message is present, we need to parse it and then handle it correctly
+		// when a incoming message is present, we need to parse it and then handle it correctly
 		case msgIn := <-cli.incoming:
 			if msgIn[0:6] == "whoami" {
 				// print id
@@ -126,17 +126,17 @@ func broadcastMsg(msg string) {
 // params: input - string, return: text - string
 func grabTextAfterColon(input string) (text string) {
 	index := strings.Index(input, ":")
-	if input[index + 1] == ' ' {
-		text = input[index + 2:]
+	if input[index+1] == ' ' {
+		text = input[index+2:]
 	} else {
-		text = input[index + 1:]
+		text = input[index+1:]
 	}
 	return strings.TrimSpace(text)
 }
 
-// function that handles sending a private message 
+// function that handles sending a private message
 // params: sender id  - int, receiver id - int, text - string
 func sendToRecipient(sender int, receiver int, text string) {
 	message := strconv.Itoa(sender) + " : " + text
-	clients[receiver - 1].outgoing <- message
+	clients[receiver-1].outgoing <- message
 }
