@@ -48,11 +48,10 @@ func (client *Client) PrintId() {
 
 // array to keep track of clients currently connected to the server
 var clients = make([]*Client, 0)
-var broadcast = make(chan string)
+var count int = 0
 
 func main() {
 	var port string = os.Args[1]
-	var count int = 0
 	
 	// listening for incoming connections
 	listen, err := net.Listen("tcp", "localhost:" + port)
@@ -84,11 +83,10 @@ func main() {
 		clients = append(clients, newClient)
 		go handleRequest(conn, *newClient)
 	}
-
 }
 
 func handleRequest(conn net.Conn, cli Client) {
-	// create separate go routines to read from and write to the client
+	// create separate goroutines to read from and write to the client
 	go cli.Read()
 	go cli.Write()
 	// run the select statement in the current go routine
@@ -106,7 +104,7 @@ func handleRequest(conn net.Conn, cli Client) {
 			} else {
 				// get id of receiver, grab message text and then send the message to the recipient
 				id, err := strconv.Atoi(string(msgIn[0]))
-				if err != nil || id > len(clients) {
+				if err != nil || id > count {
 					continue
 				}
 				text := grabTextAfterColon(msgIn)
@@ -133,7 +131,7 @@ func grabTextAfterColon(input string) (text string) {
 	} else {
 		text = input[index + 1:]
 	}
-	return text
+	return strings.TrimSpace(text)
 }
 
 // function that handles sending a private message 
