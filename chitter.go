@@ -46,9 +46,19 @@ func (client *Client) PrintId() {
 	client.outgoing <- t
 }
 
+// message struct to keep track of sender id, receiver id and text
+type Message struct {
+	sender_id int
+	receiver_id int
+	text string
+}
+
 // array to keep track of clients currently connected to the server
-var clients = make([]*Client, 0)
+// var clients = make([]*Client, 0)
 var count int = 0
+var clientChannel chan *Client
+var broadcastChannel chan *Message
+var messageChannel chan *Message
 
 func main() {
 	var port string = os.Args[1]
@@ -59,6 +69,11 @@ func main() {
 		fmt.Println("Error on listening: ", err.Error())
 		os.Exit(1)
 	}
+
+	clientChannel = make(chan *Client)
+	broadcastChannel = make(chan *Message)
+	messageChannel = make(chan *Message)
+	go handleClients()
 
 	// close listening connection when function ends
 	defer listen.Close()
@@ -80,8 +95,24 @@ func main() {
 		newClient.incoming = make(chan string)
 		newClient.outgoing = make(chan string)
 		newClient.conn = conn
-		clients = append(clients, newClient)
+		clientChannel <- newClient
 		go handleRequest(conn, *newClient)
+	}
+}
+
+func handleClients() {
+	var clients = make([]*Client, 0)
+	for {
+		select {
+		case newCli := <- clientChannel:
+			clients = append(clients, newCli);
+
+		case newMsg := <- broadcastChannel:
+			broadcastMsg(clients, newMsg)
+
+		case newPM := <- messageChannel:
+			sendMessage(clients, newPM)
+		}
 	}
 }
 
@@ -100,7 +131,10 @@ func handleRequest(conn net.Conn, cli Client) {
 			} else if msgIn[0:3] == "all" {
 				// grab message text and broadcast to all connected clients
 				text := grabTextAfterColon(msgIn)
-				broadcastMsg(text)
+				newMessage := new(Message)
+				newMessage.text = text
+				newMessage.sender_id = cli.id
+				broadcastChannel <- newMessage
 			} else {
 				// get id of receiver, grab message text and then send the message to the recipient
 				id, err := strconv.Atoi(string(msgIn[0]))
@@ -108,7 +142,11 @@ func handleRequest(conn net.Conn, cli Client) {
 					continue
 				}
 				text := grabTextAfterColon(msgIn)
-				sendToRecipient(cli.id, id, text)
+				newMessage := new(Message)
+				newMessage.text = text
+				newMessage.sender_id = cli.id
+				newMessage.receiver_id = id
+				messageChannel <- newMessage
 			}
 		}
 	}
@@ -116,27 +154,30 @@ func handleRequest(conn net.Conn, cli Client) {
 
 // function that sends a message to all connected clients
 // params: msg - string
-func broadcastMsg(msg string) {
+func broadcastMsg(clients []*Client, msg *Message) {
 	for x := 0; x < len(clients); x++ {
-		clients[x].outgoing <- msg
+		text := strconv.Itoa(msg.sender_id) + " : " + msg.text
+		clients[x].outgoing <- text
 	}
 }
 
 // function that parses the string and grabs the message being sent
 // params: input - string, return: text - string
 func grabTextAfterColon(input string) (text string) {
-	index := strings.Index(input, ":")
-	if input[index+1] == ' ' {
-		text = input[index+2:]
-	} else {
-		text = input[index+1:]
-	}
+	stringArr := strings.Split(input, ":")
+	text = stringArr[1]
 	return strings.TrimSpace(text)
+}
+
+func sendMessage(clients []*Client, msg *Message) {
+	chat := strconv.Itoa(msg.sender_id) + " : " + msg.text
+	clients[msg.receiver_id - 1].outgoing <- chat
+
 }
 
 // function that handles sending a private message
 // params: sender id  - int, receiver id - int, text - string
-func sendToRecipient(sender int, receiver int, text string) {
-	message := strconv.Itoa(sender) + " : " + text
-	clients[receiver-1].outgoing <- message
-}
+// func sendToRecipient(sender int, receiver int, text string) {
+// 	message := strconv.Itoa(sender) + " : " + text
+// 	clients[receiver-1].outgoing <- message
+// }
