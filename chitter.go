@@ -56,7 +56,6 @@ type Message struct {
 // channels used in communication between goroutines
 var clientChannel chan *Client
 var idChannel chan int
-// var count int = 0
 var broadcastChannel chan *Message
 var messageChannel chan *Message
 
@@ -102,6 +101,7 @@ func main() {
 	}
 }
 
+// function that listens for messages on all channels and passes the message to another function
 func handleClients() {
 	var clients = make([]*Client, 0)
 	for {
@@ -119,6 +119,7 @@ func handleClients() {
 	}
 }
 
+// function that is called in a separate goroutine every time a new client is added
 func handleRequest(conn net.Conn, cli Client) {
 	// create separate goroutines to read from and write to the client
 	go cli.Read()
