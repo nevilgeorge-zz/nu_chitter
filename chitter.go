@@ -53,11 +53,10 @@ type Message struct {
 	text string
 }
 
-// array to keep track of clients currently connected to the server
-// var clients = make([]*Client, 0)
+// channels used in communication between goroutines
 var clientChannel chan *Client
-var countChannel chan int
-var count int = 0
+var idChannel chan int
+// var count int = 0
 var broadcastChannel chan *Message
 var messageChannel chan *Message
 
@@ -72,7 +71,8 @@ func main() {
 	}
 
 	clientChannel = make(chan *Client)
-	countChannel = make(chan int)
+	idChannel = make(chan int, 1)
+	idChannel <- 1
 	broadcastChannel = make(chan *Message)
 	messageChannel = make(chan *Message)
 	go handleClients()
@@ -89,7 +89,7 @@ func main() {
 			os.Exit(1)
 		}
 		// no error, handle the new connection
-		count += 1
+		count := <-idChannel
 		fmt.Println("New connection! Id: " + strconv.Itoa(count))
 		// create a new Client instance
 		newClient := new(Client)
@@ -108,7 +108,7 @@ func handleClients() {
 		select {
 		case newCli := <- clientChannel:
 			clients = append(clients, newCli)
-			// countChannel <- len(clients)
+			idChannel <- len(clients) + 1
 
 		case newMsg := <- broadcastChannel:
 			broadcastMsg(clients, newMsg)
@@ -194,8 +194,10 @@ func grabTextAfterColon(input string) (text string) {
 // function to send a personal message to a client
 // params: clients - list of Client structs, msg - reference to Message struct
 func sendMessage(clients []*Client, msg *Message) {
+	if msg.receiver_id > len(clients) {
+		return
+	}
 	chat := strconv.Itoa(msg.sender_id) + " : " + msg.text
 	clients[msg.receiver_id - 1].outgoing <- chat
-
 }
 
