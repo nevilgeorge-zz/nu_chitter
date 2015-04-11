@@ -55,8 +55,9 @@ type Message struct {
 
 // array to keep track of clients currently connected to the server
 // var clients = make([]*Client, 0)
-var count int = 0
 var clientChannel chan *Client
+var countChannel chan int
+var count int = 0
 var broadcastChannel chan *Message
 var messageChannel chan *Message
 
@@ -71,6 +72,7 @@ func main() {
 	}
 
 	clientChannel = make(chan *Client)
+	countChannel = make(chan int)
 	broadcastChannel = make(chan *Message)
 	messageChannel = make(chan *Message)
 	go handleClients()
@@ -105,7 +107,8 @@ func handleClients() {
 	for {
 		select {
 		case newCli := <- clientChannel:
-			clients = append(clients, newCli);
+			clients = append(clients, newCli)
+			// countChannel <- len(clients)
 
 		case newMsg := <- broadcastChannel:
 			broadcastMsg(clients, newMsg)
@@ -128,17 +131,10 @@ func handleRequest(conn net.Conn, cli Client) {
 			if msgIn[0:6] == "whoami" {
 				// print id
 				cli.PrintId()
-			} else if msgIn[0:3] == "all" {
-				// grab message text and broadcast to all connected clients
-				text := grabTextAfterColon(msgIn)
-				newMessage := new(Message)
-				newMessage.text = text
-				newMessage.sender_id = cli.id
-				broadcastChannel <- newMessage
-			} else {
+			} else if isPersonalMessage(msgIn) {
 				// get id of receiver, grab message text and then send the message to the recipient
 				id, err := strconv.Atoi(string(msgIn[0]))
-				if err != nil || id > count {
+				if err != nil {
 					continue
 				}
 				text := grabTextAfterColon(msgIn)
@@ -147,8 +143,33 @@ func handleRequest(conn net.Conn, cli Client) {
 				newMessage.sender_id = cli.id
 				newMessage.receiver_id = id
 				messageChannel <- newMessage
+			} else if msgIn[0:3] == "all" {
+				// grab message text and broadcast to all connected clients
+				text := grabTextAfterColon(msgIn)
+				newMessage := new(Message)
+				newMessage.text = text
+				newMessage.sender_id = cli.id
+				broadcastChannel <- newMessage
+			} else {
+				// broadcast message by default
+				newMessage := new(Message)
+				newMessage.text = msgIn
+				newMessage.sender_id = cli.id
+				broadcastChannel <- newMessage
 			}
 		}
+	}
+}
+
+// function that checks whether the first entry is a number of this
+func isPersonalMessage(input string) bool {
+	text := strings.TrimSpace(input)
+	_, err := strconv.Atoi(string(text[0]))
+	index := strings.Index(input, ":")
+	if err == nil && index > -1 {
+		return true
+	} else {
+		return false
 	}
 }
 
@@ -169,15 +190,10 @@ func grabTextAfterColon(input string) (text string) {
 	return strings.TrimSpace(text)
 }
 
+// function to send a personal message to a client
 func sendMessage(clients []*Client, msg *Message) {
 	chat := strconv.Itoa(msg.sender_id) + " : " + msg.text
 	clients[msg.receiver_id - 1].outgoing <- chat
 
 }
 
-// function that handles sending a private message
-// params: sender id  - int, receiver id - int, text - string
-// func sendToRecipient(sender int, receiver int, text string) {
-// 	message := strconv.Itoa(sender) + " : " + text
-// 	clients[receiver-1].outgoing <- message
-// }
