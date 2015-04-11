@@ -162,6 +162,7 @@ func handleRequest(conn net.Conn, cli Client) {
 }
 
 // function that checks whether the first entry is a number of this
+// params: input - message input from connection
 func isPersonalMessage(input string) bool {
 	text := strings.TrimSpace(input)
 	_, err := strconv.Atoi(string(text[0]))
@@ -191,6 +192,7 @@ func grabTextAfterColon(input string) (text string) {
 }
 
 // function to send a personal message to a client
+// params: clients - list of Client structs, msg - reference to Message struct
 func sendMessage(clients []*Client, msg *Message) {
 	chat := strconv.Itoa(msg.sender_id) + " : " + msg.text
 	clients[msg.receiver_id - 1].outgoing <- chat
